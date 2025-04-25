@@ -21,7 +21,20 @@ def simulate_trial(
     Returns:
         tuple[list[int], list[int]]: Infection outcomes for control and
             treatment groups. 1 = infected, 0 = not infected.
+
+    Raises:
+        ValueError: If inputs are invalid (negative group size or probabilities
+            outside [0, 1]).
     """
+    if group_size < 0:
+        raise ValueError("group_size must be non-negative")
+    if not 0 <= exposure_rate <= 1:
+        raise ValueError("exposure_rate must be between 0 and 1")
+    if not 0 <= baseline_risk <= 1:
+        raise ValueError("baseline_risk must be between 0 and 1")
+    if not 0 <= vaccine_efficacy <= 1:
+        raise ValueError("vaccine_efficacy must be between 0 and 1")
+
     control_group = []
     treatment_group = []
 

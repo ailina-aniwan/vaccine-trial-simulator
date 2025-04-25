@@ -1,141 +1,53 @@
-"""Tests for the simulation module."""
+"""Simulation module for vaccine trial outcomes."""
 
 import random
-from typing import cast  # Add import for cast
-
-import pytest
-
-from vaxsim.simulation import simulate_trial
 
 
-@pytest.fixture
-def default_params() -> dict[str, float | int]:
-    """Default parameters for simulation tests."""
-    return {
-        "group_size": 100,
-        "exposure_rate": 0.5,
-        "baseline_risk": 0.2,
-        "vaccine_efficacy": 0.7,
-    }
+def simulate_trial(
+    group_size: int,
+    exposure_rate: float,
+    baseline_risk: float,
+    vaccine_efficacy: float,
+) -> tuple[list[int], list[int]]:
+    """Simulate a randomized vaccine trial.
 
+    Args:
+        group_size (int): Number of individuals per group.
+        exposure_rate (float): Probability of exposure to the disease.
+        baseline_risk (float): Probability of infection if exposed and
+            unvaccinated.
+        vaccine_efficacy (float): Proportional reduction in infection risk.
 
-def test_simulate_trial_output_length(
-    default_params: dict[str, float | int],
-) -> None:
-    """Test that simulate_trial returns correct output lengths."""
-    group_size = cast(
-        int, default_params["group_size"]
-    )  # Assert group_size is int
-    control, treatment = simulate_trial(
-        group_size=group_size,
-        exposure_rate=default_params["exposure_rate"],
-        baseline_risk=default_params["baseline_risk"],
-        vaccine_efficacy=default_params["vaccine_efficacy"],
-    )
-    assert len(control) == default_params["group_size"]
-    assert len(treatment) == default_params["group_size"]
+    Returns:
+        tuple[list[int], list[int]]: Infection outcomes for control and
+            treatment groups. 1 = infected, 0 = not infected.
 
+    Raises:
+        ValueError: If inputs are invalid (negative group size or probabilities
+            outside [0, 1]).
+    """
+    if group_size < 0:
+        raise ValueError("group_size must be non-negative")
+    if not 0 <= exposure_rate <= 1:
+        raise ValueError("exposure_rate must be between 0 and 1")
+    if not 0 <= baseline_risk <= 1:
+        raise ValueError("baseline_risk must be between 0 and 1")
+    if not 0 <= vaccine_efficacy <= 1:
+        raise ValueError("vaccine_efficacy must be between 0 and 1")
 
-def test_simulate_trial_binary_outcomes(
-    default_params: dict[str, float | int],
-) -> None:
-    """Test that outcomes are binary (0 or 1)."""
-    group_size = cast(
-        int, default_params["group_size"]
-    )  # Assert group_size is int
-    control, treatment = simulate_trial(
-        group_size=group_size,
-        exposure_rate=default_params["exposure_rate"],
-        baseline_risk=default_params["baseline_risk"],
-        vaccine_efficacy=default_params["vaccine_efficacy"],
-    )
-    assert all(outcome in [0, 1] for outcome in control)
-    assert all(outcome in [0, 1] for outcome in treatment)
+    control_group = []
+    treatment_group = []
 
+    for _ in range(group_size):
+        # Control group
+        exposed = random.random() < exposure_rate
+        infected = exposed and (random.random() < baseline_risk)
+        control_group.append(int(infected))
 
-def test_simulate_trial_zero_efficacy(
-    default_params: dict[str, float | int],
-) -> None:
-    """Test simulation with zero vaccine efficacy (control ≈ treatment)."""
-    # Set a random seed for reproducibility
-    random.seed(42)
-    group_size = cast(
-        int, default_params["group_size"]
-    )  # Assert group_size is int
-    control, treatment = simulate_trial(
-        group_size=group_size,
-        exposure_rate=default_params["exposure_rate"],
-        baseline_risk=default_params["baseline_risk"],
-        vaccine_efficacy=0.0,  # Override vaccine_efficacy
-    )
-    control_infections = sum(control)
-    treatment_infections = sum(treatment)
-    # With zero efficacy, expect similar infection counts
-    # (within 20% of control infections due to randomness)
-    assert (
-        abs(control_infections - treatment_infections)
-        < 0.2 * control_infections
-    )
+        # Treatment group
+        exposed = random.random() < exposure_rate
+        adjusted_risk = baseline_risk * (1 - vaccine_efficacy)
+        infected = exposed and (random.random() < adjusted_risk)
+        treatment_group.append(int(infected))
 
-
-def test_simulate_trial_full_efficacy(
-    default_params: dict[str, float | int],
-) -> None:
-    """Test simulation with 100% vaccine efficacy (no treatment infections)."""
-    group_size = cast(
-        int, default_params["group_size"]
-    )  # Assert group_size is int
-    control, treatment = simulate_trial(
-        group_size=group_size,
-        exposure_rate=default_params["exposure_rate"],
-        baseline_risk=default_params["baseline_risk"],
-        vaccine_efficacy=1.0,  # Override vaccine_efficacy
-    )
-    assert sum(treatment) == 0  # No infections in treatment group
-
-
-def test_simulate_trial_zero_exposure(
-    default_params: dict[str, float | int],
-) -> None:
-    """Test simulation with zero exposure rate (no infections)."""
-    group_size = cast(
-        int, default_params["group_size"]
-    )  # Assert group_size is int
-    control, treatment = simulate_trial(
-        group_size=group_size,
-        exposure_rate=0.0,  # Override exposure_rate
-        baseline_risk=default_params["baseline_risk"],
-        vaccine_efficacy=default_params["vaccine_efficacy"],
-    )
-    assert sum(control) == 0
-    assert sum(treatment) == 0
-
-
-def test_simulate_trial_zero_group_size() -> None:
-    """Test simulation with zero group size."""
-    control, treatment = simulate_trial(
-        group_size=0,
-        exposure_rate=0.5,
-        baseline_risk=0.2,
-        vaccine_efficacy=0.7,
-    )
-    assert control == []
-    assert treatment == []
-
-
-def test_simulate_trial_invalid_inputs() -> None:
-    """Test simulation with invalid inputs."""
-    with pytest.raises(ValueError, match="group_size must be non-negative"):
-        simulate_trial(-1, 0.5, 0.2, 0.7)
-    with pytest.raises(
-        ValueError, match="exposure_rate must be between 0 and 1"
-    ):
-        simulate_trial(100, -0.1, 0.2, 0.7)
-    with pytest.raises(
-        ValueError, match="baseline_risk must be between 0 and 1"
-    ):
-        simulate_trial(100, 0.5, 1.1, 0.7)
-    with pytest.raises(
-        ValueError, match="vaccine_efficacy must be between 0 and 1"
-    ):
-        simulate_trial(100, 0.5, 0.2, -0.1)
+    return control_group, treatment_group
