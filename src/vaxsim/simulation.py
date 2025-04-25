@@ -38,4 +38,3 @@ def simulate_trial(
         treatment_group.append(int(infected))
 
     return control_group, treatment_group
-
